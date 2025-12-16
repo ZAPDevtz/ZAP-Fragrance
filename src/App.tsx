@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, Sun, Moon, Heart, Sparkles as SparklesIcon, MessageCircle, Star } from 'lucide-react';
 import Section from './components/Section';

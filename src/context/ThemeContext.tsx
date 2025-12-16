@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
 
 export type ThemeMode = 'day' | 'night' | 'unset';
 
@@ -12,13 +13,15 @@ interface ThemeContextType {
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
   resetTheme: () => void;
+  isLoading: boolean;
+  saveSettings: () => Promise<void>;
 }
 
 const defaultState = {
-  accentColor: '#AA8C2C', // Default Gold-600
-  // Updated to match the "Perfume Bar" aesthetic (Floral/Light vs Candlelit/Dark)
-  dayImage: "https://imgur.com/a/day-time-booth-FXOmxu6?q=80&w=1469&auto=format&fit=crop", 
-  nightImage: "https://imgur.com/a/6xQ4K6c?q=80&w=1476&auto=format&fit=crop",
+  accentColor: '#AA8C2C', 
+  dayImage: "https://images.unsplash.com/photo-1519225421980-715cb0202128?q=80&w=1000&auto=format&fit=crop", 
+  nightImage: "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1000&auto=format&fit=crop",
+  themeMode: 'unset' as ThemeMode
 };
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -27,10 +30,43 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [accentColor, setAccentColor] = useState(defaultState.accentColor);
   const [dayImage, setDayImage] = useState(defaultState.dayImage);
   const [nightImage, setNightImage] = useState(defaultState.nightImage);
-  const [themeMode, setThemeMode] = useState<ThemeMode>('unset');
+  const [themeMode, setThemeMode] = useState<ThemeMode>(defaultState.themeMode);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load from local storage on mount
+  // Fetch settings from Supabase on mount
   useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('*')
+        .single(); // We only expect one row (id: 1)
+
+      if (error) {
+        console.error('Error fetching settings:', error);
+        // Fallback to local storage if DB fails or is empty
+        loadFromLocalStorage();
+        return;
+      }
+
+      if (data) {
+        setAccentColor(data.accent_color || defaultState.accentColor);
+        setDayImage(data.day_image_url || defaultState.dayImage);
+        setNightImage(data.night_image_url || defaultState.nightImage);
+        setThemeMode((data.theme_mode as ThemeMode) || defaultState.themeMode);
+      }
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      loadFromLocalStorage();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadFromLocalStorage = () => {
     const savedTheme = localStorage.getItem('zap_theme');
     if (savedTheme) {
       const parsed = JSON.parse(savedTheme);
@@ -39,12 +75,30 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (parsed.nightImage) setNightImage(parsed.nightImage);
       if (parsed.themeMode) setThemeMode(parsed.themeMode);
     }
-  }, []);
+    setIsLoading(false);
+  };
 
-  // Save to local storage on change
-  useEffect(() => {
+  // Function to save changes to Supabase (Called by Admin Panel)
+  const saveSettings = async () => {
+    // 1. Save to local storage for immediate offline backup
     localStorage.setItem('zap_theme', JSON.stringify({ accentColor, dayImage, nightImage, themeMode }));
-  }, [accentColor, dayImage, nightImage, themeMode]);
+
+    // 2. Save to Supabase
+    const { error } = await supabase
+      .from('site_settings')
+      .upsert({ 
+        id: 1, // Singleton Row ID
+        accent_color: accentColor,
+        day_image_url: dayImage,
+        night_image_url: nightImage,
+        theme_mode: themeMode
+      });
+
+    if (error) {
+      console.error("Error saving to Supabase:", error);
+      alert("Failed to save settings to cloud. Check console.");
+    }
+  };
 
   const resetTheme = () => {
     setAccentColor(defaultState.accentColor);
@@ -87,9 +141,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setDayImage, 
       nightImage, 
       setNightImage,
-      themeMode,
+      themeMode, 
       setThemeMode,
-      resetTheme
+      resetTheme,
+      isLoading,
+      saveSettings
     }}>
       <div 
         className="transition-colors duration-1000 ease-in-out"
