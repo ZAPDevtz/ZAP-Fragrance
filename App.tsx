@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'framer-motion';
 import { Menu, X, ArrowRight, Star, Moon, Sun, Heart, Sparkles as SparklesIcon, MessageCircle } from 'lucide-react';
-import Experience3D from './components/Experience3D';
 import Section from './components/Section';
 import Button from './components/Button';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
@@ -612,7 +611,6 @@ const Content = () => {
         animate={{ opacity: themeMode !== 'unset' ? 1 : 0 }}
         transition={{ duration: 1, delay: 0.2 }}
       >
-        <Experience3D />
         <main className="relative z-0">
           <NavBar onOpenContact={handleOpenContact} />
           <Hero onOpenContact={handleOpenContact} />
